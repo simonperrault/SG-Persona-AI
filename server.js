@@ -15,6 +15,8 @@ const persona = fs.readFileSync('./persona.txt', 'utf-8');
 
 const MODE = process.env.MODE || "openai";
 
+const LOCAL_LLM = "qwen3.5:9b";
+
 app.post('/chat', async (req, res) => {
   const userMessage = req.body.message;
 
@@ -67,7 +69,7 @@ async function callOllama(message) {
     method: "POST",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "qwen3.5",
+      model: LOCAL_LLM,
       stream: false,
       think: false,
       messages: [
