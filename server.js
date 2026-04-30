@@ -38,7 +38,7 @@ app.post('/chat', async (req, res) => {
   try {
     let reply;
 
-    // If persona changed → reset history
+    // If persona changed, reset history
     if (personaId !== currentPersona) {
       currentPersona = personaId;
 
