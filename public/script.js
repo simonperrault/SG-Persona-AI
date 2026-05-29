@@ -160,9 +160,15 @@ async function exportChatToPDF() {
 
     // Bubble styles
     if (isUser) {
-      pdf.setFillColor(220, 240, 255);
+   // Red bubble
+      pdf.setFillColor(255, 77, 77);
+
+      // White text
+      pdf.setTextColor(255, 255, 255);
+
     } else {
       pdf.setFillColor(240, 240, 240);
+      pdf.setTextColor(0, 0, 0);
     }
 
     // Draw bubble
@@ -177,7 +183,7 @@ async function exportChatToPDF() {
     );
 
     // Text color
-    pdf.setTextColor(0, 0, 0);
+
 
     // Draw text
     pdf.text(lines, margin + 5, y + 7);
