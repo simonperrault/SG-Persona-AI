@@ -83,3 +83,21 @@ input.addEventListener('keydown', function (e) {
     sendMessage();
   }
 });
+
+async function resetChat() {
+  try {
+    const res = await fetch('/reset', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' }
+    });
+
+    if (res.ok) {
+      // Clear the chat visually
+      document.getElementById('chat').innerHTML = '';
+      // Optionally reset input
+      input.value = '';
+    }
+  } catch (err) {
+    console.error('Error resetting chat:', err);
+  }
+}
