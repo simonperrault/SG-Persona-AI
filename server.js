@@ -95,53 +95,6 @@ async function callOpenAI(messages) {
   return data.choices[0].message.content;
 }
 
-// async function callOpenAI(message) {
-//   const response = await fetch("https://api.openai.com/v1/chat/completions", {
-//     method: "POST",
-//     headers: {
-//       "Content-Type": "application/json",
-//       "Authorization": `Bearer ${process.env.OPENAI_API_KEY}`
-//     },
-//     body: JSON.stringify({
-//       model: "gpt-4o-mini",
-//       messages: [
-//         { role: "system", content: persona },
-//         { role: "user", content: message }
-//       ]
-//     })
-//   });
-
-//   const data = await response.json();
-
-//   console.log("FULL RESPONSE:", data); //  IMPORTANT
-
-//   if (!data.choices) {
-//     throw new Error("OpenAI error: " + JSON.stringify(data));
-//   }
-
-//   return data.choices[0].message.content;
-// }
-
-// async function callOllama(message) {
-//   console.log("sending request!");
-//   const response = await fetch("http://localhost:11434/api/chat", {
-//     method: "POST",
-//     headers: { "Content-Type": "application/json" },
-//     body: JSON.stringify({
-//       model: LOCAL_LLM,
-//       stream: false,
-//       think: false,
-//       messages: [
-//         { role: "system", content: persona },
-//         { role: "user", content: message }
-//       ]
-//     })
-//   });
-
-//   const data = await response.json();
-//   return data.message.content;
-// }
-
 async function callOllama(messages) {
   console.log("sending request!");
 
