@@ -101,3 +101,4 @@ async function resetChat() {
     console.error('Error resetting chat:', err);
   }
 }
+
