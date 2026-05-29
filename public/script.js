@@ -102,3 +102,124 @@ async function resetChat() {
   }
 }
 
+async function exportChatToPDF() {
+  const { jsPDF } = window.jspdf;
+
+  // Create PDF
+  const pdf = new jsPDF({
+    orientation: "landscape",
+    unit: "mm",
+    format: "a4"
+  });
+
+  // A4 landscape dimensions
+  const pageWidth = 297;
+  const pageHeight = 210;
+
+  // Margins
+  const margin = 15;
+
+  // Current vertical position
+  let y = margin;
+
+  // Max text width
+  const maxWidth = pageWidth - margin * 2;
+
+  // Get all messages
+  const messages = document.querySelectorAll("#chat .message");
+
+  // Fonts
+  pdf.setFont("helvetica", "normal");
+  pdf.setFontSize(11);
+
+  // Title
+  pdf.setFontSize(18);
+  pdf.text("Singapore AI Chat Export", margin, y);
+
+  y += 12;
+
+  pdf.setFontSize(11);
+
+  messages.forEach((msg) => {
+
+    const isUser = msg.classList.contains("user");
+
+    const text = msg.innerText.trim();
+
+    // Split long lines
+    const lines = pdf.splitTextToSize(text, maxWidth - 20);
+
+    // Bubble height
+    const bubbleHeight = lines.length * 6 + 10;
+
+    // Page break
+    if (y + bubbleHeight > pageHeight - margin) {
+      pdf.addPage();
+      y = margin;
+    }
+
+    // Bubble styles
+    if (isUser) {
+      pdf.setFillColor(220, 240, 255);
+    } else {
+      pdf.setFillColor(240, 240, 240);
+    }
+
+    // Draw bubble
+    pdf.roundedRect(
+      margin,
+      y,
+      maxWidth,
+      bubbleHeight,
+      3,
+      3,
+      "F"
+    );
+
+    // Text color
+    pdf.setTextColor(0, 0, 0);
+
+    // Draw text
+    pdf.text(lines, margin + 5, y + 7);
+
+    // Move down
+    y += bubbleHeight + 6;
+  });
+
+// Get selected persona name
+const personaSelect = document.getElementById("personaSelect");
+
+let personaName = "unknown";
+
+if (personaSelect && personaSelect.selectedOptions.length > 0) {
+  personaName = personaSelect.selectedOptions[0].text;
+}
+
+// Clean persona name for filename safety
+personaName = personaName
+  .toLowerCase()
+  .replace(/\s+/g, "-")
+  .replace(/[^a-z0-9-_]/g, "");
+
+// Create timestamp
+const now = new Date();
+
+const timestamp =
+  now.getFullYear() +
+  "-" +
+  String(now.getMonth() + 1).padStart(2, "0") +
+  "-" +
+  String(now.getDate()).padStart(2, "0") +
+  "_" +
+  String(now.getHours()).padStart(2, "0") +
+  "-" +
+  String(now.getMinutes()).padStart(2, "0") +
+  "-" +
+  String(now.getSeconds()).padStart(2, "0");
+
+// Final filename
+const filename = `sg-persona-${personaName}-${timestamp}.pdf`;
+
+// Save PDF
+pdf.save(filename);
+}
