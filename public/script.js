@@ -13,7 +13,11 @@ async function loadPersonas() {
     select.appendChild(option);
   });
 
-  selectedPersona = select.value;
+  // Set selectedPersona to the first persona by default
+  if (select.options.length > 0) {
+    select.selectedIndex = 0;
+    selectedPersona = select.value;
+  }
 
   select.addEventListener('change', () => {
     selectedPersona = select.value;
@@ -105,6 +109,21 @@ async function resetChat() {
 async function exportChatToPDF() {
   const { jsPDF } = window.jspdf;
 
+  // Get selected persona name
+  const personaSelect = document.getElementById("personaSelect");
+  let personaName = "unknown";
+  if (personaSelect && personaSelect.selectedOptions.length > 0) {
+    personaName = personaSelect.selectedOptions[0].text;
+  }
+
+  // Create date string
+  const now = new Date();
+  const dateStr = now.toLocaleDateString('en-US', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric'
+  });
+
   // Create PDF
   const pdf = new jsPDF({
     orientation: "landscape",
@@ -132,9 +151,9 @@ async function exportChatToPDF() {
   pdf.setFont("helvetica", "normal");
   pdf.setFontSize(11);
 
-  // Title
+  // Title with persona name and date
   pdf.setFontSize(18);
-  pdf.text("Singapore AI Chat Export", margin, y);
+  pdf.text(`Singapore AI exported Chat with ${personaName} on ${dateStr}`, margin, y);
 
   y += 12;
 
@@ -192,23 +211,12 @@ async function exportChatToPDF() {
     y += bubbleHeight + 6;
   });
 
-// Get selected persona name
-const personaSelect = document.getElementById("personaSelect");
-
-let personaName = "unknown";
-
-if (personaSelect && personaSelect.selectedOptions.length > 0) {
-  personaName = personaSelect.selectedOptions[0].text;
-}
-
 // Clean persona name for filename safety
-personaName = personaName
+const fileNamePersona = personaName
   .toLowerCase()
   .replace(/\s+/g, "-")
   .replace(/[^a-z0-9-_]/g, "");
 
-// Create timestamp
-const now = new Date();
 
 const timestamp =
   now.getFullYear() +
@@ -224,7 +232,7 @@ const timestamp =
   String(now.getSeconds()).padStart(2, "0");
 
 // Final filename
-const filename = `sg-persona-${personaName}-${timestamp}.pdf`;
+const filename = `sg-persona-${fileNamePersona}-${timestamp}.pdf`;
 
 // Save PDF
 pdf.save(filename);
