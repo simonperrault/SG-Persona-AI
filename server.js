@@ -6,6 +6,9 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
+// dotenv must load before db.js reads DATA_DIR
+const { default: db } = await import('./db.js');
+
 const app = express();
 app.use(cors());
 app.use(express.json());

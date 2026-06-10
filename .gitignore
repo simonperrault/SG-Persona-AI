@@ -1,3 +1,6 @@
 node_modules/*
 .DS_Store
 .DS_Store
+
+# SQLite database (local data, never commit)
+data/
