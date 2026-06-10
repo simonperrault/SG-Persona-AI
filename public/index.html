@@ -7,6 +7,12 @@
 </head>
 <body>
   <div class="container">
+    <!-- Current user + logout (this page requires login) -->
+    <div id="userBar" class="hidden">
+      <span>Logged in as <strong id="userEmail"></strong></span>
+      <button onclick="logout()">Log out</button>
+    </div>
+
     <h1>Singapore AI Guide</h1>
 
     <p>You may discuss various topics related to Singapore with our AI personas. Please select any persona from the list below and start chatting!</p>

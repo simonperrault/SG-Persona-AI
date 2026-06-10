@@ -1,5 +1,37 @@
 let selectedPersona = null;
 
+// =========================
+// Auth guard — this page requires login
+// =========================
+
+async function checkAuth() {
+  try {
+    const res = await fetch('/auth/me');
+    const data = await res.json();
+
+    if (!data.user) {
+      window.location.replace('/login.html');
+      return;
+    }
+
+    document.getElementById('userEmail').textContent = data.user.email;
+    document.getElementById('userBar').classList.remove('hidden');
+  } catch (err) {
+    console.error('Error checking login status:', err);
+  }
+}
+
+async function logout() {
+  try {
+    await fetch('/auth/logout', { method: 'POST' });
+  } catch (err) {
+    console.error(err);
+  }
+  window.location.replace('/login.html');
+}
+
+checkAuth();
+
 async function loadPersonas() {
   const res = await fetch('/personas');
   const personas = await res.json();
@@ -65,6 +97,12 @@ async function sendMessage() {
         personaId: selectedPersona
       })
     });
+
+    // Session expired — back to the login page
+    if (res.status === 401) {
+      window.location.replace('/login.html');
+      return;
+    }
 
     const data = await res.json();
 

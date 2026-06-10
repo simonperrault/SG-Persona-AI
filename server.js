@@ -3,16 +3,40 @@ import cors from 'cors';
 import fs from 'fs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
+import session from 'express-session';
+import sqliteStoreFactory from 'better-sqlite3-session-store';
+import db from './db.js';
+import authRouter, { getSessionSecret, requireAuth } from './auth.js';
 
 dotenv.config();
-
-// dotenv must load before db.js reads DATA_DIR
-const { default: db } = await import('./db.js');
 
 const app = express();
 app.use(cors());
 app.use(express.json());
 app.use(express.static('public'));
+
+// =========================
+// Sessions (stored in SQLite, survive restarts)
+// =========================
+const SqliteStore = sqliteStoreFactory(session);
+
+app.use(session({
+  store: new SqliteStore({
+    client: db,
+    expired: { clear: true, intervalMs: 15 * 60 * 1000 }
+  }),
+  name: 'sid',
+  secret: getSessionSecret(),
+  resave: false,
+  saveUninitialized: false,
+  cookie: {
+    httpOnly: true,
+    sameSite: 'lax',
+    maxAge: 30 * 24 * 60 * 60 * 1000 // 30 days
+  }
+}));
+
+app.use('/auth', authRouter);
 
 //const persona = fs.readFileSync('./persona.txt', 'utf-8');
 const personas = JSON.parse(fs.readFileSync('./persona.json', 'utf-8'));
@@ -35,7 +59,7 @@ app.get('/personas', (req, res) => {
   res.json(list);
 });
 
-app.post('/chat', async (req, res) => {
+app.post('/chat', requireAuth, async (req, res) => {
   const { message, personaId } = req.body;
 
   try {
@@ -126,7 +150,7 @@ async function callOllama(messages) {
 // RESET (allows users to reset the conversation)
 // =========================
 
-app.post('/reset', (req, res) => {
+app.post('/reset', requireAuth, (req, res) => {
   history = [];
   currentPersona = null;
   res.sendStatus(200);

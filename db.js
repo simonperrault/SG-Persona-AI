@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import Database from 'better-sqlite3';
 import fs from 'fs';
 import path from 'path';
@@ -8,7 +9,7 @@ import path from 'path';
 // The SQLite file lives in ./data/ (gitignored).
 // DATA_DIR can be overridden via .env, e.g. for tests.
 
-const DATA_DIR = process.env.DATA_DIR || './data';
+export const DATA_DIR = process.env.DATA_DIR || './data';
 
 if (!fs.existsSync(DATA_DIR)) {
   fs.mkdirSync(DATA_DIR, { recursive: true });

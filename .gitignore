@@ -4,3 +4,6 @@ node_modules/*
 
 # SQLite database (local data, never commit)
 data/
+
+# Local dev tooling
+.claude/

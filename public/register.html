@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>Create account - Singapore AI Chat</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div class="container auth-card">
+    <h1>Singapore AI Guide</h1>
+
+    <h2>Create account</h2>
+
+    <p id="authMessage" class="hidden"></p>
+
+    <form id="authForm">
+      <label for="email">Email</label>
+      <input id="email" type="email" autocomplete="email" required />
+
+      <label for="password">Password (min. 8 characters)</label>
+      <input id="password" type="password" autocomplete="new-password" minlength="8" required />
+
+      <label for="passwordConfirm">Confirm password</label>
+      <input id="passwordConfirm" type="password" autocomplete="new-password" minlength="8" required />
+
+      <button type="submit">Register</button>
+    </form>
+
+    <p class="auth-switch">Already have an account? <a href="login.html">Log in</a></p>
+  </div>
+
+  <script src="auth-ui.js"></script>
+  <script>initAuthPage('register');</script>
+</body>
+</html>
