@@ -1,12 +1,18 @@
 import express from 'express';
 import cors from 'cors';
-import fs from 'fs';
 import fetch from 'node-fetch';
 import dotenv from 'dotenv';
 import session from 'express-session';
 import sqliteStoreFactory from 'better-sqlite3-session-store';
 import db from './db.js';
 import authRouter, { getSessionSecret, requireAuth } from './auth.js';
+import personas from './personas.js';
+import conversationsRouter, {
+  getOrCreateLatestConversation,
+  saveMessage,
+  setTitleIfEmpty,
+  getConversationHistory
+} from './conversations.js';
 
 dotenv.config();
 
@@ -37,12 +43,7 @@ app.use(session({
 }));
 
 app.use('/auth', authRouter);
-
-//const persona = fs.readFileSync('./persona.txt', 'utf-8');
-const personas = JSON.parse(fs.readFileSync('./persona.json', 'utf-8'));
-
-let history = [];
-let currentPersona = null;
+app.use('/conversations', conversationsRouter);
 
 const MODE = process.env.MODE || "openai";
 
@@ -63,32 +64,31 @@ app.post('/chat', requireAuth, async (req, res) => {
   const { message, personaId } = req.body;
 
   try {
-    let reply;
-
-    // If persona changed, reset history
-    if (personaId !== currentPersona) {
-      currentPersona = personaId;
-
-      history = [
-        {
-          role: "system",
-          content: personas[personaId].prompt
-        }
-      ];
+    if (!personaId || !personas[personaId]) {
+      return res.status(400).json({ error: 'Unknown persona.' });
+    }
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is empty.' });
     }
 
-    // Add user message
-    history.push({ role: "user", content: message });
+    // Each user continues their own latest conversation with this persona
+    const conversation = getOrCreateLatestConversation(req.session.userId, personaId);
 
-    // Call model with FULL history
+    // Save the user message first so it is kept even if the model call fails
+    saveMessage(conversation.id, 'user', message);
+    setTitleIfEmpty(conversation.id, conversation.title, message);
+
+    // Call model with the FULL stored history (system prompt included)
+    const history = getConversationHistory(conversation.id);
+
+    let reply;
     if (MODE === "openai") {
       reply = await callOpenAI(history);
     } else {
       reply = await callOllama(history);
     }
 
-    // Save assistant reply
-    history.push({ role: "assistant", content: reply });
+    saveMessage(conversation.id, 'assistant', reply);
 
     res.json({ reply });
 
@@ -144,17 +144,6 @@ async function callOllama(messages) {
 
   return data.message.content;
 }
-
-
-// =========================
-// RESET (allows users to reset the conversation)
-// =========================
-
-app.post('/reset', requireAuth, (req, res) => {
-  history = [];
-  currentPersona = null;
-  res.sendStatus(200);
-});
 
 app.listen(3000, () => {
   console.log("Server running on http://localhost:3000");

@@ -49,17 +49,45 @@ async function loadPersonas() {
   if (select.options.length > 0) {
     select.selectedIndex = 0;
     selectedPersona = select.value;
+    loadHistory();
   }
 
   select.addEventListener('change', () => {
     selectedPersona = select.value;
 
-    // Optional: clear chat visually
-    document.getElementById('chat').innerHTML = '';
+    // Show the saved chat with this persona
+    loadHistory();
   });
 }
 
 loadPersonas();
+
+// Fill the chat window with the latest saved conversation for the
+// selected persona (empty if there is none yet)
+async function loadHistory() {
+  const chat = document.getElementById('chat');
+  chat.innerHTML = '';
+
+  if (!selectedPersona) return;
+
+  try {
+    const res = await fetch(`/conversations/latest?personaId=${encodeURIComponent(selectedPersona)}`);
+
+    if (res.status === 401) {
+      window.location.replace('/login.html');
+      return;
+    }
+
+    const data = await res.json();
+
+    data.messages.forEach(m => {
+      addMessage(m.content, m.role === 'user' ? 'user' : 'bot');
+    });
+
+  } catch (err) {
+    console.error('Error loading chat history:', err);
+  }
+}
 
 
 function addMessage(text, className) {
@@ -127,11 +155,20 @@ input.addEventListener('keydown', function (e) {
 });
 
 async function resetChat() {
+  if (!selectedPersona) return;
+
   try {
-    const res = await fetch('/reset', {
+    // Start a fresh conversation; the previous one stays in the database
+    const res = await fetch('/conversations/new', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' }
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ personaId: selectedPersona })
     });
+
+    if (res.status === 401) {
+      window.location.replace('/login.html');
+      return;
+    }
 
     if (res.ok) {
       // Clear the chat visually
