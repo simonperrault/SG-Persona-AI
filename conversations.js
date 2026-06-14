@@ -37,10 +37,6 @@ export function createConversation(userId, personaId) {
   return { id, title: null };
 }
 
-export function getOrCreateLatestConversation(userId, personaId) {
-  return latestConversation(userId, personaId) || createConversation(userId, personaId);
-}
-
 export function saveMessage(conversationId, role, content) {
   db.prepare(
     'INSERT INTO messages (conversation_id, role, content) VALUES (?, ?, ?)'
@@ -64,6 +60,14 @@ export function getConversationHistory(conversationId) {
   ).all(conversationId);
 }
 
+// Conversation by id, only if it belongs to this user (else undefined).
+// Used by the routes below and by /chat in server.js.
+export function getConversationForUser(conversationId, userId) {
+  return db.prepare(
+    'SELECT id, persona_id AS personaId, title FROM conversations WHERE id = ? AND user_id = ?'
+  ).get(conversationId, userId);
+}
+
 // =========================
 // Routes (/conversations/...)
 // =========================
@@ -71,27 +75,29 @@ export function getConversationHistory(conversationId) {
 const router = Router();
 router.use(requireAuth);
 
-// GET /conversations/latest?personaId=xxx
-// The user's most recent chat with this persona (without the system prompt),
-// used to fill the chat window when the page loads or the persona changes.
-router.get('/latest', (req, res) => {
-  const { personaId } = req.query;
-  if (!personaId || !personas[personaId]) {
-    return res.status(400).json({ error: 'Unknown persona.' });
-  }
+// GET /conversations
+// All conversations of the current user, most recently active first —
+// fills the "Recent" sidebar.
+router.get('/', (req, res) => {
+  const rows = db.prepare(`
+    SELECT
+      c.id,
+      c.persona_id AS personaId,
+      c.title,
+      c.updated_at AS updatedAt,
+      (SELECT COUNT(*) FROM messages m
+        WHERE m.conversation_id = c.id AND m.role != 'system') AS messageCount
+    FROM conversations c
+    WHERE c.user_id = ?
+    ORDER BY c.updated_at DESC, c.id DESC
+  `).all(req.session.userId);
 
-  const conversation = latestConversation(req.session.userId, personaId);
-  if (!conversation) {
-    return res.json({ id: null, messages: [] });
-  }
+  const list = rows.map(row => ({
+    ...row,
+    personaName: personas[row.personaId]?.name || row.personaId
+  }));
 
-  const messages = db.prepare(`
-    SELECT role, content FROM messages
-    WHERE conversation_id = ? AND role != 'system'
-    ORDER BY id
-  `).all(conversation.id);
-
-  res.json({ id: conversation.id, messages });
+  res.json(list);
 });
 
 // POST /conversations/new  { personaId }
@@ -116,6 +122,29 @@ router.post('/new', (req, res) => {
 
   const conversation = createConversation(req.session.userId, personaId);
   res.json({ id: conversation.id });
+});
+
+// GET /conversations/:id
+// One conversation with its messages (system prompt excluded) —
+// fills the chat window when the user opens a conversation.
+router.get('/:id', (req, res) => {
+  const conversation = getConversationForUser(Number(req.params.id), req.session.userId);
+  if (!conversation) {
+    return res.status(404).json({ error: 'Conversation not found.' });
+  }
+
+  const messages = db.prepare(`
+    SELECT role, content FROM messages
+    WHERE conversation_id = ? AND role != 'system'
+    ORDER BY id
+  `).all(conversation.id);
+
+  res.json({
+    id: conversation.id,
+    personaId: conversation.personaId,
+    title: conversation.title,
+    messages
+  });
 });
 
 export default router;

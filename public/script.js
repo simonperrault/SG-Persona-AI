@@ -1,4 +1,10 @@
-let selectedPersona = null;
+// =========================
+// State
+// =========================
+
+let personasList = [];          // [{id, name, description}]
+let conversations = [];         // [{id, personaId, personaName, title, updatedAt, messageCount}]
+let activeConversationId = null;
 
 // =========================
 // Auth guard — this page requires login
@@ -11,13 +17,14 @@ async function checkAuth() {
 
     if (!data.user) {
       window.location.replace('/login.html');
-      return;
+      return false;
     }
 
     document.getElementById('userEmail').textContent = data.user.email;
-    document.getElementById('userBar').classList.remove('hidden');
+    return true;
   } catch (err) {
     console.error('Error checking login status:', err);
+    return false;
   }
 }
 
@@ -30,48 +37,140 @@ async function logout() {
   window.location.replace('/login.html');
 }
 
-checkAuth();
+// =========================
+// Init
+// =========================
 
-async function loadPersonas() {
-  const res = await fetch('/personas');
-  const personas = await res.json();
+async function init() {
+  const loggedIn = await checkAuth();
+  if (!loggedIn) return;
 
-  const select = document.getElementById('personaSelect');
+  const [personasRes, conversationsRes] = await Promise.all([
+    fetch('/personas'),
+    fetch('/conversations')
+  ]);
+  personasList = await personasRes.json();
+  conversations = await conversationsRes.json();
 
-  personas.forEach(p => {
-    const option = document.createElement('option');
-    option.value = p.id;
-    option.textContent = p.name;
-    select.appendChild(option);
-  });
+  renderNewConvMenu();
+  renderSidebar();
 
-  // Set selectedPersona to the first persona by default
-  if (select.options.length > 0) {
-    select.selectedIndex = 0;
-    selectedPersona = select.value;
-    loadHistory();
+  if (conversations.length > 0) {
+    openConversation(conversations[0].id);
+  } else {
+    showEmptyState();
   }
+}
 
-  select.addEventListener('change', () => {
-    selectedPersona = select.value;
+init();
 
-    // Show the saved chat with this persona
-    loadHistory();
+function showEmptyState() {
+  document.getElementById('emptyState').classList.remove('hidden');
+  document.getElementById('chatArea').classList.add('hidden');
+}
+
+function showChatArea() {
+  document.getElementById('emptyState').classList.add('hidden');
+  document.getElementById('chatArea').classList.remove('hidden');
+}
+
+// =========================
+// Sidebar
+// =========================
+
+async function refreshConversations() {
+  try {
+    const res = await fetch('/conversations');
+    if (res.status === 401) {
+      window.location.replace('/login.html');
+      return;
+    }
+    conversations = await res.json();
+    renderSidebar();
+  } catch (err) {
+    console.error('Error loading conversations:', err);
+  }
+}
+
+// Tag colour follows the persona's position in the personas list
+function personaTagClass(personaId) {
+  const index = personasList.findIndex(p => p.id === personaId);
+  return 'tag-' + (index >= 0 ? index % 4 : 0);
+}
+
+function renderSidebar() {
+  const list = document.getElementById('convList');
+  list.innerHTML = '';
+
+  conversations.forEach(c => {
+    const item = document.createElement('div');
+    item.className = 'conv-item' + (c.id === activeConversationId ? ' active' : '');
+    item.onclick = () => openConversation(c.id);
+
+    const title = document.createElement('div');
+    title.className = 'conv-item-title';
+    title.textContent = c.title || 'New conversation';
+
+    const tag = document.createElement('span');
+    tag.className = 'persona-tag ' + personaTagClass(c.personaId);
+    tag.textContent = c.personaName;
+
+    item.appendChild(title);
+    item.appendChild(tag);
+    list.appendChild(item);
   });
 }
 
-loadPersonas();
+// =========================
+// New conversation (persona picker)
+// =========================
 
-// Fill the chat window with the latest saved conversation for the
-// selected persona (empty if there is none yet)
-async function loadHistory() {
-  const chat = document.getElementById('chat');
-  chat.innerHTML = '';
+function renderNewConvMenu() {
+  const menu = document.getElementById('newConvMenu');
+  menu.innerHTML = '';
 
-  if (!selectedPersona) return;
+  personasList.forEach(p => {
+    const option = document.createElement('div');
+    option.className = 'new-conv-option';
+    option.onclick = () => createNewConversation(p.id);
+
+    const name = document.createElement('strong');
+    name.textContent = p.name;
+
+    const desc = document.createElement('div');
+    desc.className = 'new-conv-option-desc';
+    desc.textContent = p.description;
+
+    option.appendChild(name);
+    option.appendChild(desc);
+    menu.appendChild(option);
+  });
+}
+
+function toggleNewConvMenu() {
+  document.getElementById('newConvMenu').classList.toggle('hidden');
+}
+
+function hideNewConvMenu() {
+  document.getElementById('newConvMenu').classList.add('hidden');
+}
+
+// Close the persona menu when clicking anywhere else
+document.addEventListener('click', (e) => {
+  if (!e.target.closest('.new-conv-wrap')) {
+    hideNewConvMenu();
+  }
+});
+
+async function createNewConversation(personaId) {
+  hideNewConvMenu();
 
   try {
-    const res = await fetch(`/conversations/latest?personaId=${encodeURIComponent(selectedPersona)}`);
+    const res = await fetch('/conversations/new', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ personaId })
+    });
 
     if (res.status === 401) {
       window.location.replace('/login.html');
@@ -80,15 +179,58 @@ async function loadHistory() {
 
     const data = await res.json();
 
+    await refreshConversations();
+    openConversation(data.id);
+
+  } catch (err) {
+    console.error('Error creating conversation:', err);
+  }
+}
+
+// =========================
+// Open a conversation
+// =========================
+
+async function openConversation(id) {
+  try {
+    const res = await fetch(`/conversations/${id}`);
+
+    if (res.status === 401) {
+      window.location.replace('/login.html');
+      return;
+    }
+    if (!res.ok) {
+      console.error('Could not open conversation', id);
+      return;
+    }
+
+    const data = await res.json();
+    activeConversationId = data.id;
+
+    // Header: title + persona
+    const persona = personasList.find(p => p.id === data.personaId);
+    document.getElementById('convTitle').textContent = data.title || 'New conversation';
+    document.getElementById('convPersonaName').textContent = persona ? persona.name : data.personaId;
+    document.getElementById('convPersonaDesc').textContent =
+      persona && persona.description ? ` · ${persona.description}` : '';
+
+    // Messages
+    const chat = document.getElementById('chat');
+    chat.innerHTML = '';
     data.messages.forEach(m => {
       addMessage(m.content, m.role === 'user' ? 'user' : 'bot');
     });
 
+    showChatArea();
+    renderSidebar(); // update the active highlight
   } catch (err) {
-    console.error('Error loading chat history:', err);
+    console.error('Error opening conversation:', err);
   }
 }
 
+// =========================
+// Chat
+// =========================
 
 function addMessage(text, className) {
   const chat = document.getElementById('chat');
@@ -104,6 +246,8 @@ function addMessage(text, className) {
 }
 
 async function sendMessage() {
+  if (!activeConversationId) return;
+
   const input = document.getElementById('input');
   const text = input.value.trim();
   if (!text) return;
@@ -122,7 +266,7 @@ async function sendMessage() {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
         message: text,
-        personaId: selectedPersona
+        conversationId: activeConversationId
       })
     });
 
@@ -138,12 +282,18 @@ async function sendMessage() {
     typingBubble.textContent = data.reply;
     typingBubble.classList.remove('typing');
 
+    // First message names the conversation and ordering may change
+    await refreshConversations();
+    const current = conversations.find(c => c.id === activeConversationId);
+    if (current) {
+      document.getElementById('convTitle').textContent = current.title || 'New conversation';
+    }
+
   } catch (err) {
     console.error(err);
     typingBubble.textContent = "Error getting response.";
   }
 }
-
 
 const input = document.getElementById('input');
 
@@ -154,42 +304,18 @@ input.addEventListener('keydown', function (e) {
   }
 });
 
-async function resetChat() {
-  if (!selectedPersona) return;
-
-  try {
-    // Start a fresh conversation; the previous one stays in the database
-    const res = await fetch('/conversations/new', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ personaId: selectedPersona })
-    });
-
-    if (res.status === 401) {
-      window.location.replace('/login.html');
-      return;
-    }
-
-    if (res.ok) {
-      // Clear the chat visually
-      document.getElementById('chat').innerHTML = '';
-      // Optionally reset input
-      input.value = '';
-    }
-  } catch (err) {
-    console.error('Error resetting chat:', err);
-  }
-}
+// =========================
+// PDF export
+// =========================
 
 async function exportChatToPDF() {
+  if (!activeConversationId) return;
+
   const { jsPDF } = window.jspdf;
 
-  // Get selected persona name
-  const personaSelect = document.getElementById("personaSelect");
-  let personaName = "unknown";
-  if (personaSelect && personaSelect.selectedOptions.length > 0) {
-    personaName = personaSelect.selectedOptions[0].text;
-  }
+  // Persona of the active conversation
+  const conversation = conversations.find(c => c.id === activeConversationId);
+  const personaName = conversation ? conversation.personaName : 'unknown';
 
   // Create date string
   const now = new Date();
@@ -275,9 +401,6 @@ async function exportChatToPDF() {
       3,
       "F"
     );
-
-    // Text color
-
 
     // Draw text
     pdf.text(lines, margin + 5, y + 7);

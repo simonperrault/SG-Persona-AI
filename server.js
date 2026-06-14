@@ -8,7 +8,7 @@ import db from './db.js';
 import authRouter, { getSessionSecret, requireAuth } from './auth.js';
 import personas from './personas.js';
 import conversationsRouter, {
-  getOrCreateLatestConversation,
+  getConversationForUser,
   saveMessage,
   setTitleIfEmpty,
   getConversationHistory
@@ -55,24 +55,25 @@ const LOCAL_LLM = "qwen3.5:9b";
 app.get('/personas', (req, res) => {
   const list = Object.entries(personas).map(([id, p]) => ({
     id,
-    name: p.name
+    name: p.name,
+    description: p.description || ''
   }));
   res.json(list);
 });
 
 app.post('/chat', requireAuth, async (req, res) => {
-  const { message, personaId } = req.body;
+  const { message, conversationId } = req.body;
 
   try {
-    if (!personaId || !personas[personaId]) {
-      return res.status(400).json({ error: 'Unknown persona.' });
-    }
     if (!message || !message.trim()) {
       return res.status(400).json({ error: 'Message is empty.' });
     }
 
-    // Each user continues their own latest conversation with this persona
-    const conversation = getOrCreateLatestConversation(req.session.userId, personaId);
+    // The conversation must exist and belong to the logged-in user
+    const conversation = getConversationForUser(Number(conversationId), req.session.userId);
+    if (!conversation) {
+      return res.status(404).json({ error: 'Conversation not found.' });
+    }
 
     // Save the user message first so it is kept even if the model call fails
     saveMessage(conversation.id, 'user', message);

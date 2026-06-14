@@ -5,38 +5,52 @@
   <title>Singapore AI Chat</title>
   <link rel="stylesheet" href="style.css">
 </head>
-<body>
-  <div class="container">
-    <!-- Current user + logout (this page requires login) -->
-    <div id="userBar" class="hidden">
-      <span>Logged in as <strong id="userEmail"></strong></span>
-      <button onclick="logout()">Log out</button>
-    </div>
+<body class="app-page">
+  <div class="app">
 
-    <h1>Singapore AI Guide</h1>
+    <!-- Sidebar: user, new conversation, recent conversations -->
+    <aside class="sidebar">
+      <div class="sidebar-user">
+        <strong id="userEmail"></strong>
+        <button class="text-btn" onclick="logout()">Log out</button>
+      </div>
 
-    <p>You may discuss various topics related to Singapore with our AI personas. Please select any persona from the list below and start chatting!</p>
+      <div class="new-conv-wrap">
+        <button id="newConvBtn" onclick="toggleNewConvMenu()">+ New Conversation</button>
+        <!-- Persona picker, filled by script.js -->
+        <div id="newConvMenu" class="new-conv-menu hidden"></div>
+      </div>
 
-  <div>
-  <label for="personaSelect">Choose a persona:</label>
-  <select id="personaSelect"></select>
-  &emsp;
-  <button onclick="resetChat()">Reset</button>
-  &emsp;
-  <button onclick="exportChatToPDF()">Export PDF</button>
+      <div class="recent-label">Recent</div>
+      <div id="convList" class="conv-list"></div>
+    </aside>
+
+    <!-- Main area: active conversation -->
+    <main class="main">
+      <div id="emptyState" class="empty-state hidden">
+        <h2>Welcome!</h2>
+        <p>Click <strong>+ New Conversation</strong> and pick a persona to start chatting.</p>
+      </div>
+
+      <div id="chatArea" class="chat-area hidden">
+        <header class="conv-header">
+          <div class="conv-header-text">
+            <h2 id="convTitle"></h2>
+            <p class="conv-subtitle">Chatting with <strong id="convPersonaName"></strong><span id="convPersonaDesc"></span></p>
+          </div>
+          <button onclick="exportChatToPDF()">Export PDF</button>
+        </header>
+
+        <div id="chat"></div>
+
+        <div class="input-area">
+          <input id="input" placeholder="Type your message..." />
+          <button onclick="sendMessage()">Send</button>
+        </div>
+      </div>
+    </main>
+
   </div>
-
-     <!-- New chatbot -->
-    <div id="chat"></div>
-
-    <!-- Input area -->
-    <div class="input-area">
-      <input id="input" placeholder="Type your message..." />
-      <button onclick="sendMessage()">Send</button>
-      
-    </div>
-  </div>
-
 
   <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 
